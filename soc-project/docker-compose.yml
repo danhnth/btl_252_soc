@@ -98,7 +98,7 @@ services:
     container_name: soc-wazuh-manager
     hostname: wazuh-manager
     environment:
-      - INDEXER_URL=https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+      - INDEXER_URL=http://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
       - INDEXER_USERNAME=${ELASTICSEARCH_USERNAME}
       - INDEXER_PASSWORD=${ELASTICSEARCH_PASSWORD}
       - API_USERNAME=${WAZUH_ADMIN_USER}

@@ -80,7 +80,7 @@ sleep 15
 # ── Final count ───────────────────────────────────────────────────────
 echo ""
 ES_USER="${ES_USER:-elastic}"
-ES_PASS="${ES_PASS:-ChangeMeElastic123!@#}"
+ES_PASS="${ES_PASS:-changeme123}"
 count=$(docker exec soc-elasticsearch curl -s -k \
   -u "$ES_USER:$ES_PASS" \
   -X GET "https://localhost:9200/suricata-ids-*/_count" \

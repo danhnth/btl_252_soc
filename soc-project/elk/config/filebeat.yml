@@ -67,7 +67,7 @@ output.elasticsearch:
   username: "${ELASTICSEARCH_USERNAME}"
   password: "${ELASTICSEARCH_PASSWORD}"
   ssl.certificate_authorities: ["/usr/share/filebeat/config/certs/ca.crt"]
-  ssl.verification_mode: certificate
+  ssl.verification_mode: none
   
   # Indices configuration
   indices:
@@ -86,12 +86,6 @@ processors:
   - add_cloud_metadata: ~
   - add_docker_metadata: ~
   - add_locale: ~
-  - decode_json_fields:
-      fields: ["message"]
-      target: ""
-      overwrite_keys: true
-      when:
-        has_fields: ['message']
 
 #=========================== Logging ===========================
 logging.level: info

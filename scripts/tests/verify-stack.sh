@@ -6,7 +6,7 @@
 set -uo pipefail
 
 ES_USER="${ES_USER:-elastic}"
-ES_PASS="${ES_PASS:-ChangeMeElastic123!@#}"
+ES_PASS="${ES_PASS:-changeme123}"
 ES_URL="https://localhost:9200"
 KIBANA_URL="${KIBANA_URL:-http://localhost:5601}"
 

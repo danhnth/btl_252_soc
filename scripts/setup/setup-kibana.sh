@@ -7,7 +7,7 @@ set -euo pipefail
 
 KIBANA_URL="${KIBANA_URL:-http://localhost:5601}"
 ES_USER="${ES_USER:-elastic}"
-ES_PASS="${ES_PASS:-ChangeMeElastic123!@#}"
+ES_PASS="${ES_PASS:-changeme123}"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 
@@ -33,6 +33,9 @@ for i in $(seq 1 30); do
 done
 
 # ── 2. Create data views ─────────────────────────────────────────────
+echo ""
+echo "[2/3] Creating data views..."
+
 create_data_view() {
   local id="$1" title="$2" time_field="$3"
   echo ""
@@ -51,7 +54,7 @@ create_data_view() {
     -X POST "$KIBANA_URL/api/data_views/data_view" \
     -H "kbn-xsrf: true" \
     -H "Content-Type: application/json" \
-    -d "{\"data_view\":{\"id\":\"$id\",\"title\":\"$title\",\"timeFieldName\":\"$time_field\"}}")
+    -d "{\"data_view\":{\"id\":\"$id\",\"name\":\"$title\",\"title\":\"$title\",\"timeFieldName\":\"$time_field\"}}")
 
   [ "$result" = "200" ] && ok "Created: $title" || warn "HTTP $result for $title (may already exist)"
 }

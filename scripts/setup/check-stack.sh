@@ -5,7 +5,7 @@
 set -uo pipefail
 
 ES_USER="${ES_USER:-elastic}"
-ES_PASS="${ES_PASS:-ChangeMeElastic123!@#}"
+ES_PASS="${ES_PASS:-changeme123}"
 ES_URL="https://localhost:9200"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; BLUE='\033[0;34m'; NC='\033[0m'
