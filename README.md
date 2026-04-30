@@ -102,10 +102,10 @@ docker-compose ps
 ```powershell
 # Replace the password value with whatever ELASTICSEARCH_PASSWORD you set in .env
 docker exec soc-elasticsearch curl -sk -X POST `
-  -u "elastic:ChangeMeElastic123!@#" `
+  -u "elastic:changeme123" `
   "https://localhost:9200/_security/user/kibana_system/_password" `
   -H "Content-Type: application/json" `
-  -d '{\"password\":\"ChangeMeKibanaSystem123!@#\"}'
+  -d '{\"password\":\"changeme123"}'
 ```
 
 Then restart Kibana so it picks up the new credentials:
@@ -502,10 +502,10 @@ This happens on a fresh install because the `kibana_system` password must be exp
 
 ```bash
 docker exec soc-elasticsearch curl -sk -X POST \
-  -u "elastic:ChangeMeElastic123!@#" \
+  -u "elastic:changeme123" \
   "https://localhost:9200/_security/user/kibana_system/_password" \
   -H "Content-Type: application/json" \
-  -d '{"password":"ChangeMeKibanaSystem123!@#"}'
+  -d '{"password":"changeme123"}'
 ```
 
 Then: `docker-compose restart kibana` (or `docker compose restart kibana` on Linux).
