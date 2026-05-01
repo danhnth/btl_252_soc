@@ -71,18 +71,18 @@ IP.1 = 127.0.0.1
 EOF
 
     # Generate CA
-    openssl genrsa -out ca.key 4096 2>/dev/null
-    openssl req -x509 -new -nodes -key ca.key -sha256 -days 825 \
+    openssl genrsa -out ca.key 4096
+    MSYS2_ARG_CONV_EXCL='*' openssl req -x509 -new -nodes -key ca.key -sha256 -days 825 \
         -out ca.crt -config cert_ext.cnf -extensions v3_ca \
-        -subj "/C=US/ST=CA/L=SF/O=SOC/CN=soc-ca" 2>/dev/null
+        -subj "/C=US/ST=CA/L=SF/O=SOC/CN=soc-ca"
 
     # Generate Elasticsearch cert
-    openssl genrsa -out elasticsearch.key 4096 2>/dev/null
+    openssl genrsa -out elasticsearch.key 4096
     openssl req -new -key elasticsearch.key -out elasticsearch.csr \
-        -config cert_ext.cnf 2>/dev/null
+        -config cert_ext.cnf
     openssl x509 -req -in elasticsearch.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
         -out elasticsearch.crt -days 825 -sha256 \
-        -extfile cert_ext.cnf -extensions v3_server 2>/dev/null
+        -extfile cert_ext.cnf -extensions v3_server
 
     rm -f elasticsearch.csr ca.srl
     echo "  Certificates generated in certs/"
