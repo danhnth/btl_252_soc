@@ -375,8 +375,9 @@ All scripts are in `scripts/` at the project root.
 ```
 scripts/
 ├── setup/
-│   ├── setup-kibana.sh      # Create Kibana data views (run once after stack start)
-│   └── check-stack.sh       # Print health summary of all services
+│   ├── setup-kibana.sh              # Create Kibana data views (run once after stack start)
+│   ├── check-stack.sh               # Print health summary of all services
+│   └── fix-elasticsearch-certs.sh   # Fix SSL certificate permission errors
 ├── attacks/
 │   ├── generate-alerts.sh   # Fire attack traffic from inside Suricata (shell)
 │   └── attack-scenarios.py  # Python attack simulator with scenario selection
@@ -398,6 +399,26 @@ Prints a health summary: container states, cluster health, alert counts, index s
 
 ```bash
 bash scripts/setup/check-stack.sh
+```
+
+### `scripts/setup/fix-elasticsearch-certs.sh`
+
+Fixes SSL certificate permission errors when Elasticsearch fails to start with:
+```
+SslConfigException: not permitted to read the PEM private key file
+```
+
+Auto-detects certificate path from `.env` or `docker-compose.yml`.
+
+```bash
+# Auto-detect and fix
+sudo bash scripts/setup/fix-elasticsearch-certs.sh
+
+# Specify path manually
+sudo bash scripts/setup/fix-elasticsearch-certs.sh /path/to/certs
+
+# Fix only, don't restart containers
+sudo bash scripts/setup/fix-elasticsearch-certs.sh -n /path/to/certs
 ```
 
 ### `scripts/attacks/generate-alerts.sh`
@@ -488,6 +509,18 @@ Reduce JVM heap or increase Docker memory:
 ```env
 # soc-project/.env
 ES_JAVA_OPTS=-Xms512m -Xmx512m
+```
+
+### Elasticsearch fails to start — SSL permission error
+
+If you see:
+```
+org.elasticsearch.common.ssl.SslConfigException: not permitted to read the PEM private key file
+```
+
+The certificate files have incorrect ownership. Fix with:
+```bash
+sudo bash scripts/setup/fix-elasticsearch-certs.sh
 ```
 
 ### Linux: `max virtual memory areas too low`
