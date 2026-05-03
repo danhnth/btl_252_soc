@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # fix-elasticsearch-certs.sh
-# Fixes SSL certificate permissions for Elasticsearch Docker container
-# Run this on the Linux VM/host if Elasticsearch fails with:
-#   "SslConfigException: not permitted to read the PEM private key file"
+# Fixes SSL certificate and directory permissions for Elasticsearch Docker container
+# Run this on the Linux VM/host if Elasticsearch fails with permission errors
 #
 # Usage: sudo bash scripts/setup/fix-elasticsearch-certs.sh [cert-path]
 #        If cert-path is omitted, attempts to auto-detect from .env or docker-compose.yml
+#
+# Fixes:
+#   - Certificate permissions (UID 1000:1000, 640 for keys, 644 for certs)
+#   - Logs directory permissions (UID 1000:1000, 755)
+#   - Data directory permissions (UID 1000:1000, 755)
 
 set -euo pipefail
 
@@ -27,16 +31,50 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SOC_PROJECT="${PROJECT_ROOT}/soc-project"
 
+# Helper function to fix directory permissions
+fix_directory_permissions() {
+    local dir_path="$1"
+    local dir_name="$2"
+    
+    if [ ! -d "$dir_path" ]; then
+        warn "$dir_name directory does not exist: $dir_path"
+        return 1
+    fi
+    
+    info "Fixing $dir_name directory: $dir_path"
+    
+    if chown -R 1000:1000 "$dir_path"; then
+        ok "Changed ownership to 1000:1000"
+    else
+        fail "Failed to change ownership for $dir_name"
+        return 1
+    fi
+    
+    if chmod 755 "$dir_path"; then
+        ok "Set permissions to 755"
+    else
+        fail "Failed to set permissions for $dir_name"
+        return 1
+    fi
+    
+    return 0
+}
+
 show_help() {
     cat << EOF
 Usage: sudo $(basename "$0") [OPTIONS] [CERT-PATH]
 
-Fix Elasticsearch SSL certificate permissions for Docker deployment.
+Fix Elasticsearch SSL certificate and directory permissions for Docker deployment.
+
+Fixes:
+  - Certificate files: UID 1000:1000, keys 640, certs 644
+  - Logs directory: UID 1000:1000, 755
+  - Data directory: UID 1000:1000, 755
 
 OPTIONS:
-    -h, --help      Show this help message
+    -h, --help          Show this help message
     -n, --no-restart    Don't restart containers after fixing permissions
-    -y, --yes       Auto-confirm all prompts
+    -y, --yes           Auto-confirm all prompts
 
 CERT-PATH:
     Path to certificate directory. If not provided, attempts to detect from:
@@ -45,9 +83,10 @@ CERT-PATH:
     3. soc-project/docker-compose.yml
 
 EXAMPLES:
-    sudo $(basename "$0")                           # Auto-detect path
-    sudo $(basename "$0") /opt/soc/certs            # Use specific path
-    sudo $(basename "$0") -n /opt/soc/certs         # Fix only, don't restart
+    sudo $(basename "$0")                           # Auto-detect and fix all
+    sudo $(basename "$0") /opt/soc/certs            # Use specific cert path
+    sudo $(basename "$0") -n                        # Fix only, don't restart
+    sudo $(basename "$0") -y                        # Auto-confirm all prompts
 
 REQUIREMENTS:
     - Must run as root or with sudo
@@ -158,6 +197,26 @@ fi
 info "Working with certificate directory: $CERT_PATH"
 echo
 
+# Auto-detect logs and data paths from .env
+LOGS_PATH=""
+DATA_PATH=""
+
+if [ -f "${SOC_PROJECT}/.env" ]; then
+    info "Checking .env for LOGS_PATH and DATA_PATH..."
+    
+    LOGS_PATH=$(grep -E '^LOGS_PATH=' "${SOC_PROJECT}/.env" | cut -d'=' -f2 | tr -d '"' | head -1)
+    DATA_PATH=$(grep -E '^DATA_PATH=' "${SOC_PROJECT}/.env" | cut -d'=' -f2 | tr -d '"' | head -1)
+    
+    if [ -n "$LOGS_PATH" ]; then
+        ok "Found LOGS_PATH: $LOGS_PATH"
+    fi
+    if [ -n "$DATA_PATH" ]; then
+        ok "Found DATA_PATH: $DATA_PATH"
+    fi
+fi
+
+echo
+
 # Check for required certificate files
 info "Checking for certificate files..."
 MISSING_FILES=false
@@ -189,10 +248,16 @@ echo
 # Confirm before making changes
 if [ "$AUTO_CONFIRM" = false ]; then
     echo -e "${YELLOW}This will:${NC}"
-    echo "  1. Change ownership to UID 1000:1000 (elasticsearch user)"
-    echo "  2. Set directory permissions to 755"
+    echo "  1. Change certificate ownership to UID 1000:1000"
+    echo "  2. Set certificate directory permissions to 755"
     echo "  3. Set private key permissions to 640 (owner read-only)"
     echo "  4. Set certificate permissions to 644"
+    if [ -n "$LOGS_PATH" ]; then
+        echo "  5. Fix logs directory permissions: $LOGS_PATH/elasticsearch"
+    fi
+    if [ -n "$DATA_PATH" ]; then
+        echo "  6. Fix data directory permissions: $DATA_PATH/elasticsearch"
+    fi
     echo
     read -rp "Proceed? (y/N): " -n 1 -r
     echo
@@ -264,6 +329,34 @@ echo
 info "New permissions:"
 ls -la "$CERT_PATH"
 echo
+
+# Fix logs and data directories
+echo
+info "Fixing Elasticsearch directories..."
+
+# Fix logs directory
+if [ -n "$LOGS_PATH" ]; then
+    ES_LOGS="$LOGS_PATH/elasticsearch"
+    if [ -d "$ES_LOGS" ]; then
+        fix_directory_permissions "$ES_LOGS" "Elasticsearch logs" || true
+    else
+        info "Creating Elasticsearch logs directory: $ES_LOGS"
+        mkdir -p "$ES_LOGS"
+        fix_directory_permissions "$ES_LOGS" "Elasticsearch logs" || true
+    fi
+fi
+
+# Fix data directory
+if [ -n "$DATA_PATH" ]; then
+    ES_DATA="$DATA_PATH/elasticsearch"
+    if [ -d "$ES_DATA" ]; then
+        fix_directory_permissions "$ES_DATA" "Elasticsearch data" || true
+    else
+        info "Creating Elasticsearch data directory: $ES_DATA"
+        mkdir -p "$ES_DATA"
+        fix_directory_permissions "$ES_DATA" "Elasticsearch data" || true
+    fi
+fi
 
 # Restart containers if requested
 if [ "$NO_RESTART" = false ]; then
