@@ -143,50 +143,72 @@ if [ "$EUID" -ne 0 ]; then
     exit 2
 fi
 
-# Determine certificate path if not provided
-if [ -z "$CERT_PATH" ]; then
-    info "Cert path not provided, attempting auto-detection..."
+# Preserve CERT_PATH if provided via command line
+CERT_PATH_FROM_CLI="${CERT_PATH:-}"
+
+# Auto-detect paths from .env
+LOGS_PATH=""
+DATA_PATH=""
+
+if [ -f "${SOC_PROJECT}/.env" ]; then
+    info "Loading paths from .env..."
     
-    # Method 1: Check environment variable
-    if [ -n "${TLS_CERT_PATH:-}" ]; then
-        CERT_PATH="$TLS_CERT_PATH"
-        ok "Found TLS_CERT_PATH environment variable: $CERT_PATH"
-    # Method 2: Check .env file in soc-project
-    elif [ -f "${SOC_PROJECT}/.env" ]; then
-        ENV_PATH=$(grep -E '^TLS_CERT_PATH=' "${SOC_PROJECT}/.env" | cut -d'=' -f2 | tr -d '"' | head -1)
-        if [ -n "$ENV_PATH" ]; then
-            CERT_PATH="$ENV_PATH"
-            ok "Found TLS_CERT_PATH in .env: $CERT_PATH"
+    TLS_CERT_PATH_FROM_ENV=$(grep -E '^TLS_CERT_PATH=' "${SOC_PROJECT}/.env" | cut -d'=' -f2 | tr -d '"' | head -1)
+    LOGS_PATH=$(grep -E '^LOGS_PATH=' "${SOC_PROJECT}/.env" | cut -d'=' -f2 | tr -d '"' | head -1)
+    DATA_PATH=$(grep -E '^DATA_PATH=' "${SOC_PROJECT}/.env" | cut -d'=' -f2 | tr -d '"' | head -1)
+    
+    # Use CLI-provided cert path if available, otherwise use .env
+    if [ -n "$CERT_PATH_FROM_CLI" ]; then
+        CERT_PATH="$CERT_PATH_FROM_CLI"
+        ok "Using command-line cert path: $CERT_PATH"
+    elif [ -n "$TLS_CERT_PATH_FROM_ENV" ]; then
+        # Convert relative paths to absolute paths (relative to SOC_PROJECT)
+        if [[ "$TLS_CERT_PATH_FROM_ENV" == ./* ]]; then
+            CERT_PATH="${SOC_PROJECT}/${TLS_CERT_PATH_FROM_ENV#./}"
+        elif [[ "$TLS_CERT_PATH_FROM_ENV" == /* ]]; then
+            CERT_PATH="$TLS_CERT_PATH_FROM_ENV"
+        else
+            CERT_PATH="${SOC_PROJECT}/${TLS_CERT_PATH_FROM_ENV}"
         fi
-    # Method 3: Check docker-compose.yml for volume mounts
-    elif [ -f "${SOC_PROJECT}/docker-compose.yml" ]; then
-        # Look for cert volume patterns
-        COMPOSE_PATH=$(grep -oP 'TLS_CERT_PATH[^}]*\K[^\s]+' "${SOC_PROJECT}/docker-compose.yml" 2>/dev/null | head -1)
-        if [ -z "$COMPOSE_PATH" ]; then
-            # Try alternative pattern
-            COMPOSE_PATH=$(grep -oE '/[^:]+/certs' "${SOC_PROJECT}/docker-compose.yml" | head -1)
-        fi
-        if [ -n "$COMPOSE_PATH" ]; then
-            CERT_PATH="$COMPOSE_PATH"
-            ok "Found potential path in docker-compose.yml: $CERT_PATH"
-        fi
+        ok "Found TLS_CERT_PATH in .env: $CERT_PATH"
     fi
     
-    # If still not found, prompt user
-    if [ -z "$CERT_PATH" ]; then
-        warn "Could not auto-detect certificate path"
-        echo
-        echo "Common locations:"
-        echo "  - ./soc-project/certs"
-        echo "  - /opt/soc/certs"
-        echo "  - /etc/docker/certs"
-        echo
-        read -rp "Enter certificate directory path: " CERT_PATH
+    # Convert LOGS_PATH to absolute
+    if [ -n "$LOGS_PATH" ]; then
+        if [[ "$LOGS_PATH" == ./* ]]; then
+            LOGS_PATH="${SOC_PROJECT}/${LOGS_PATH#./}"
+        elif [[ "$LOGS_PATH" != /* ]]; then
+            LOGS_PATH="${SOC_PROJECT}/${LOGS_PATH}"
+        fi
+        ok "Found LOGS_PATH: $LOGS_PATH"
+    fi
+    
+    # Convert DATA_PATH to absolute
+    if [ -n "$DATA_PATH" ]; then
+        if [[ "$DATA_PATH" == ./* ]]; then
+            DATA_PATH="${SOC_PROJECT}/${DATA_PATH#./}"
+        elif [[ "$DATA_PATH" != /* ]]; then
+            DATA_PATH="${SOC_PROJECT}/${DATA_PATH}"
+        fi
+        ok "Found DATA_PATH: $DATA_PATH"
     fi
 fi
 
-# Resolve to absolute path
-CERT_PATH=$(cd "$(dirname "$CERT_PATH")" 2>/dev/null && pwd)/$(basename "$CERT_PATH") || true
+# Validate cert path
+if [ -z "$CERT_PATH" ]; then
+    fail "Could not determine certificate path"
+    echo
+    echo "Please provide the path to the certificate directory:"
+    echo "  sudo $0 /path/to/certs"
+    echo
+    echo "Or set TLS_CERT_PATH in ${SOC_PROJECT}/.env"
+    exit 3
+fi
+
+# Resolve to absolute path if relative
+if [[ "$CERT_PATH" == ./* ]]; then
+    CERT_PATH="${SOC_PROJECT}/${CERT_PATH#./}"
+fi
 
 # Validate path exists
 if [ ! -d "$CERT_PATH" ]; then
@@ -195,26 +217,6 @@ if [ ! -d "$CERT_PATH" ]; then
 fi
 
 info "Working with certificate directory: $CERT_PATH"
-echo
-
-# Auto-detect logs and data paths from .env
-LOGS_PATH=""
-DATA_PATH=""
-
-if [ -f "${SOC_PROJECT}/.env" ]; then
-    info "Checking .env for LOGS_PATH and DATA_PATH..."
-    
-    LOGS_PATH=$(grep -E '^LOGS_PATH=' "${SOC_PROJECT}/.env" | cut -d'=' -f2 | tr -d '"' | head -1)
-    DATA_PATH=$(grep -E '^DATA_PATH=' "${SOC_PROJECT}/.env" | cut -d'=' -f2 | tr -d '"' | head -1)
-    
-    if [ -n "$LOGS_PATH" ]; then
-        ok "Found LOGS_PATH: $LOGS_PATH"
-    fi
-    if [ -n "$DATA_PATH" ]; then
-        ok "Found DATA_PATH: $DATA_PATH"
-    fi
-fi
-
 echo
 
 # Check for required certificate files
@@ -337,25 +339,47 @@ info "Fixing Elasticsearch directories..."
 # Fix logs directory
 if [ -n "$LOGS_PATH" ]; then
     ES_LOGS="$LOGS_PATH/elasticsearch"
-    if [ -d "$ES_LOGS" ]; then
-        fix_directory_permissions "$ES_LOGS" "Elasticsearch logs" || true
-    else
+    info "Setting up Elasticsearch logs directory: $ES_LOGS"
+    
+    # Create parent directory if needed
+    if [ ! -d "$LOGS_PATH" ]; then
+        info "Creating logs parent directory: $LOGS_PATH"
+        mkdir -p "$LOGS_PATH"
+        chown 1000:1000 "$LOGS_PATH"
+        chmod 755 "$LOGS_PATH"
+        ok "Created and fixed permissions for $LOGS_PATH"
+    fi
+    
+    # Create elasticsearch subdirectory
+    if [ ! -d "$ES_LOGS" ]; then
         info "Creating Elasticsearch logs directory: $ES_LOGS"
         mkdir -p "$ES_LOGS"
-        fix_directory_permissions "$ES_LOGS" "Elasticsearch logs" || true
     fi
+    
+    fix_directory_permissions "$ES_LOGS" "Elasticsearch logs" || true
 fi
 
-# Fix data directory
+# Fix data directory  
 if [ -n "$DATA_PATH" ]; then
     ES_DATA="$DATA_PATH/elasticsearch"
-    if [ -d "$ES_DATA" ]; then
-        fix_directory_permissions "$ES_DATA" "Elasticsearch data" || true
-    else
+    info "Setting up Elasticsearch data directory: $ES_DATA"
+    
+    # Create parent directory if needed
+    if [ ! -d "$DATA_PATH" ]; then
+        info "Creating data parent directory: $DATA_PATH"
+        mkdir -p "$DATA_PATH"
+        chown 1000:1000 "$DATA_PATH"
+        chmod 755 "$DATA_PATH"
+        ok "Created and fixed permissions for $DATA_PATH"
+    fi
+    
+    # Create elasticsearch subdirectory
+    if [ ! -d "$ES_DATA" ]; then
         info "Creating Elasticsearch data directory: $ES_DATA"
         mkdir -p "$ES_DATA"
-        fix_directory_permissions "$ES_DATA" "Elasticsearch data" || true
     fi
+    
+    fix_directory_permissions "$ES_DATA" "Elasticsearch data" || true
 fi
 
 # Restart containers if requested
