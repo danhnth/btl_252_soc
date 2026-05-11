@@ -1,5 +1,7 @@
 # Security Operations Center (SOC)
 
+🌐 **Languages:** [English](README.md) | [Tiếng Việt](README-vi.md)
+
 Open-source SOC stack using Suricata IDS, Elasticsearch, Kibana, Wazuh SIEM, and Filebeat — fully containerised with Docker Compose.
 
 ---
