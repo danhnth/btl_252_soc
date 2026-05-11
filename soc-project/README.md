@@ -14,8 +14,7 @@ This directory contains the Docker Compose stack and all service configuration f
 # From this directory (soc-project/)
 docker network create soc-net
 cp .env.example .env   # then edit .env and change all passwords
-docker-compose up -d
-docker-compose ps      # wait ~3 minutes for first start
+bash setup.sh # This will start the stack and run all setup scripts for each service
 ```
 
 Access Kibana at <http://localhost:5601>
