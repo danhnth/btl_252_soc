@@ -9,9 +9,9 @@ Open-source SOC stack using Suricata IDS, Elasticsearch, Kibana, Wazuh SIEM, and
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Requirements](#requirements)
+- [Quick Start](#quick-start)
 - [Installation](#installation)
   - [Windows](#windows-docker-desktop)
-  - [macOS](#macos-docker-desktop)
   - [Linux](#linux-docker-engine)
 - [Configuration](#configuration)
 - [Usage](#usage)
@@ -56,6 +56,28 @@ All services communicate over the `soc-net` Docker bridge network with TLS 1.3.
 | RAM | 8 GB | 16 GB |
 | Disk | 50 GB | 100 GB SSD |
 
+**Software:**
+- Docker Desktop (Windows) or Docker Engine (Linux)
+- Git Bash or WSL 2 (Windows only)
+
+---
+
+## Quick Start
+
+```bash
+cd soc-project
+bash setup.sh
+```
+
+The `setup.sh` script will:
+1. Create `.env` from `.env.example` (if missing)
+2. Generate TLS certificates for Elasticsearch
+3. Create the Docker network
+4. Start all services
+5. Bootstrap Kibana credentials automatically
+
+Wait ~60 seconds, then access Kibana at http://localhost:5601
+
 ---
 
 ## Installation
@@ -66,130 +88,50 @@ All services communicate over the `soc-net` Docker bridge network with TLS 1.3.
 
 1. **Install Docker Desktop**
    - Download from <https://www.docker.com/products/docker-desktop/>
-   - During install, enable the **WSL 2 backend** (recommended) or **Hyper-V**
-   - After install, open Docker Desktop and wait for the engine to start (whale icon in taskbar turns steady)
+   - During install, enable the **WSL 2 backend** (recommended)
+   - After install, open Docker Desktop and wait for the engine to start
 
 2. **Set Docker memory to at least 8 GB**
    Docker Desktop → Settings → Resources → Memory → `8 GB`
 
-3. **Enable WSL 2 integration** (if using WSL 2 backend)
-   Docker Desktop → Settings → Resources → WSL Integration → enable your distro
+3. **Install Git Bash** (for running `.sh` scripts)
+   - Comes with [Git for Windows](https://git-scm.com/download/win)
+   - Or use WSL 2 terminal
 
 #### Setup
 
-Open **PowerShell** or **Windows Terminal**:
+Open **Git Bash** or **WSL 2** terminal:
 
-```powershell
+```bash
 # 1. Navigate to the project
-cd C:\path\to\btl_252_soc\soc-project
+cd /c/path/to/btl_252_soc
 
-# 2. Create Docker network
-docker network create soc-net
-
-# 3. Copy and edit the environment file
-Copy-Item .env.example .env
-notepad .env       # change all passwords
-
-# 4. Start all services
-docker-compose up -d
-
-# 5. Wait ~3 minutes, then check status
-docker-compose ps
+# 2. Run the automated setup
+bash soc-project/setup.sh
 ```
 
-**⚠️ Required bootstrap step (first-time only):** Once Elasticsearch is `healthy`, set the Kibana internal user password:
+The setup script handles everything automatically:
+- Creates `.env` from template
+- Generates TLS certificates
+- Creates Docker network
+- Starts the stack
+- Bootstraps Kibana credentials
 
-```powershell
-# Replace the password value with whatever ELASTICSEARCH_PASSWORD you set in .env
-docker exec soc-elasticsearch curl -sk -X POST `
-  -u "elastic:changeme123" `
-  "https://localhost:9200/_security/user/kibana_system/_password" `
-  -H "Content-Type: application/json" `
-  -d '{\"password\":\"changeme123"}'
-```
-
-Then restart Kibana so it picks up the new credentials:
-
-```powershell
-docker-compose restart kibana
-```
-
-Wait ~90 seconds for Kibana to become ready, then access it at <http://localhost:5601>
+Wait ~60 seconds after setup completes, then access:
+- **Kibana**: http://localhost:5601 (elastic / password from `.env`)
 
 #### Running scripts on Windows
 
-The `.sh` scripts require a bash shell. Use either:
+All scripts require a bash shell. Use either:
 
-- **Git Bash** (comes with Git for Windows) — right-click folder → *Git Bash Here*
+- **Git Bash** — right-click folder → *Git Bash Here*
 - **WSL 2** terminal
 
 ```bash
-# Git Bash or WSL:
-bash scripts/setup/check-stack.sh
-bash scripts/attacks/generate-alerts.sh
-bash scripts/tests/verify-stack.sh
-```
-
----
-
-### macOS (Docker Desktop)
-
-#### Prerequisites
-
-1. **Install Docker Desktop**
-   - Intel Mac or Apple Silicon: <https://docs.docker.com/desktop/install/mac-install/>
-   - Open Docker Desktop and wait for it to finish initialising
-
-2. **Set Docker memory to at least 8 GB**
-   Docker Desktop → Settings → Resources → Memory → `8 GB`
-
-#### Setup
-
-Open **Terminal**:
-
-```bash
-# 1. Navigate to project
-cd /path/to/btl_252_soc/soc-project
-
-# 2. Create Docker network
-docker network create soc-net
-
-# 3. Copy and edit environment file
-cp .env.example .env
-nano .env    # or: open -e .env
-
-# 4. Start all services
-docker-compose up -d
-
-# 5. Wait ~3 minutes, then check status
-docker-compose ps
-```
-
-**⚠️ Required bootstrap step (first-time only):** Once Elasticsearch is `healthy`, set the Kibana internal user password:
-
-```bash
-docker exec soc-elasticsearch curl -sk -X POST \
-  -u "elastic:ChangeMeElastic123!@#" \
-  "https://localhost:9200/_security/user/kibana_system/_password" \
-  -H "Content-Type: application/json" \
-  -d '{"password":"ChangeMeKibanaSystem123!@#"}'
-```
-
-Then restart Kibana so it picks up the new credentials:
-
-```bash
-docker-compose restart kibana
-```
-
-Wait ~90 seconds for Kibana to become ready, then access it at <http://localhost:5601>
-
-#### Running scripts
-
-```bash
-bash scripts/setup/setup-kibana.sh
-bash scripts/setup/check-stack.sh
-bash scripts/attacks/generate-alerts.sh
-bash scripts/tests/verify-stack.sh
+# From project root
+bash scripts/setup/check-stack.sh      # Health check
+bash scripts/attacks/generate-alerts.sh # Generate test alerts
+bash scripts/tests/verify-stack.sh      # Smoke test
 ```
 
 ---
@@ -239,49 +181,23 @@ echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
 
 ```bash
 # 1. Navigate to project
-cd /path/to/btl_252_soc/soc-project
+cd /path/to/btl_252_soc
 
 # 2. Fix directory ownership
-sudo chown -R $USER:$USER data/ logs/ 2>/dev/null || true
+sudo chown -R $USER:$USER soc-project/data/ soc-project/logs/ 2>/dev/null || true
 
-# 3. Create Docker network
-docker network create soc-net
-
-# 4. Copy and edit environment file
-cp .env.example .env
-nano .env
-
-# 5. Start all services (Docker Compose v2 uses 'docker compose', no hyphen)
-docker compose up -d
-
-# 6. Check status
-docker compose ps
+# 3. Run automated setup
+bash soc-project/setup.sh
 ```
 
-**⚠️ Required bootstrap step (first-time only):** Once Elasticsearch is `healthy`, set the Kibana internal user password:
-
-```bash
-docker exec soc-elasticsearch curl -sk -X POST \
-  -u "elastic:ChangeMeElastic123!@#" \
-  "https://localhost:9200/_security/user/kibana_system/_password" \
-  -H "Content-Type: application/json" \
-  -d '{"password":"ChangeMeKibanaSystem123!@#"}'
-```
-
-Then restart Kibana so it picks up the new credentials:
-
-```bash
-docker compose restart kibana
-```
-
-Wait ~90 seconds for Kibana to become ready, then access it at <http://localhost:5601>
+Wait ~60 seconds after setup completes, then access:
+- **Kibana**: http://localhost:5601
 
 #### Running scripts
 
 ```bash
 chmod +x scripts/setup/*.sh scripts/attacks/*.sh scripts/tests/*.sh
 
-bash scripts/setup/setup-kibana.sh
 bash scripts/setup/check-stack.sh
 bash scripts/attacks/generate-alerts.sh
 bash scripts/tests/verify-stack.sh
@@ -296,16 +212,17 @@ Edit `soc-project/.env`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `ELASTICSEARCH_PASSWORD` | `ChangeMeElastic123!@#` | Elastic superuser password |
-| `KIBANA_SYSTEM_PASSWORD` | `ChangeMeKibanaSystem123!@#` | Kibana internal user |
-| `WAZUH_ADMIN_PASSWORD` | `ChangeMeWazuh456!@#` | Wazuh API admin password |
+| `ELASTICSEARCH_PASSWORD` | `changeme123` | Elastic superuser password |
+| `KIBANA_SYSTEM_PASSWORD` | `changeme123` | Kibana internal user |
+| `WAZUH_ADMIN_PASSWORD` | `ChangeMeWazuh123#` | Wazuh API admin password |
 | `KIBANA_ENCRYPTION_KEY` | *(random string)* | Encryption key for saved objects |
-| `HMAC_SECRET` | `soc-hmac-secret-key-2024` | Signature service HMAC secret |
-| `ES_JAVA_OPTS` | `-Xms1g -Xmx1g` | Elasticsearch JVM heap |
+| `HMAC_SECRET` | `soc-hmac-secret-key-2024-production-change-me` | Signature service HMAC secret |
+| `ES_JAVA_OPTS` | `-Xms512m -Xmx512m` | Elasticsearch JVM heap |
 | `ELASTIC_VERSION` | `8.12.0` | ELK Stack version |
 
 **Memory tuning:**
 ```env
+ES_JAVA_OPTS=-Xms1g -Xmx1g   # 8 GB system
 ES_JAVA_OPTS=-Xms2g -Xmx2g   # 16 GB system
 ES_JAVA_OPTS=-Xms4g -Xmx4g   # 32 GB system
 ```
@@ -349,7 +266,7 @@ Or manually in the Kibana UI:
 
 ```bash
 # Start all services
-docker-compose up -d
+cd soc-project && docker-compose up -d
 
 # Stop all services
 docker-compose stop
@@ -363,7 +280,7 @@ docker-compose logs -f filebeat
 # Full reset (⚠ deletes all data)
 docker-compose down -v
 rm -rf soc-project/data/ soc-project/logs/
-docker-compose up -d
+bash soc-project/setup.sh
 ```
 
 ---
@@ -375,14 +292,23 @@ All scripts are in `scripts/` at the project root.
 ```
 scripts/
 ├── setup/
-│   ├── setup-kibana.sh              # Create Kibana data views (run once after stack start)
-│   ├── check-stack.sh               # Print health summary of all services
-│   └── fix-elasticsearch-certs.sh   # Fix SSL certificate permission errors
+│   ├── setup-kibana.sh              # Create Kibana data views
+│   ├── check-stack.sh               # Colorful health summary
+│   └── fix-elasticsearch-certs.sh   # Fix SSL certificate permissions
 ├── attacks/
-│   ├── generate-alerts.sh   # Fire attack traffic from inside Suricata (shell)
-│   └── attack-scenarios.py  # Python attack simulator with scenario selection
+│   ├── generate-alerts.sh           # Generate IDS alerts with colored output
+│   └── attack-scenarios.py          # Python attack simulator (10 scenarios)
 └── tests/
-    └── verify-stack.sh      # Smoke test — exits non-zero on failure
+    └── verify-stack.sh              # Smoke test — exits 0 on pass
+```
+
+### `soc-project/setup.sh`
+
+**One-command setup** — generates certificates, creates network, starts stack, bootstraps Kibana.
+
+```bash
+cd soc-project
+bash setup.sh
 ```
 
 ### `scripts/setup/setup-kibana.sh`
@@ -395,7 +321,12 @@ bash scripts/setup/setup-kibana.sh
 
 ### `scripts/setup/check-stack.sh`
 
-Prints a health summary: container states, cluster health, alert counts, index status.
+Colorful health summary showing:
+- Container status with health indicators
+- Elasticsearch cluster health
+- Suricata alert count
+- Top 5 alert signatures
+- Index health
 
 ```bash
 bash scripts/setup/check-stack.sh
@@ -403,12 +334,10 @@ bash scripts/setup/check-stack.sh
 
 ### `scripts/setup/fix-elasticsearch-certs.sh`
 
-Fixes SSL certificate permission errors when Elasticsearch fails to start with:
+Fixes SSL certificate permission errors:
 ```
 SslConfigException: not permitted to read the PEM private key file
 ```
-
-Auto-detects certificate path from `.env` or `docker-compose.yml`.
 
 ```bash
 # Auto-detect and fix
@@ -416,23 +345,28 @@ sudo bash scripts/setup/fix-elasticsearch-certs.sh
 
 # Specify path manually
 sudo bash scripts/setup/fix-elasticsearch-certs.sh /path/to/certs
-
-# Fix only, don't restart containers
-sudo bash scripts/setup/fix-elasticsearch-certs.sh -n /path/to/certs
 ```
 
 ### `scripts/attacks/generate-alerts.sh`
 
-Generates IDS alert traffic by making outbound HTTP requests from inside the Suricata container. Waits 15 s then prints total alert count.
+Generates IDS alerts with **colored output** and progress indicators.
 
 ```bash
-bash scripts/attacks/generate-alerts.sh           # full suite (~6 scenarios)
-bash scripts/attacks/generate-alerts.sh --quick   # 2 fast scenarios only
+bash scripts/attacks/generate-alerts.sh           # Full suite (~6 scenarios)
+bash scripts/attacks/generate-alerts.sh --quick   # Fast scenarios only
 ```
+
+Scenarios include:
+- IDS Detection Test (GPL ATTACK_RESPONSE)
+- Malware Download Simulation (ET MALWARE)
+- Security Scanner Detection (sqlmap, Nikto, Nmap)
+- Known-Bad Domain Lookup
+- Policy Violations
+- Burst traffic
 
 ### `scripts/attacks/attack-scenarios.py`
 
-Fine-grained Python attack simulator. Can be run on the host or copied into the Suricata container for reliable detection.
+Fine-grained Python attack simulator with 10 scenarios.
 
 ```bash
 # List all scenarios
@@ -453,7 +387,7 @@ Available scenarios: `ids-test`, `sqlmap`, `nikto`, `nmap`, `malware-dl`, `sql-i
 
 ### `scripts/tests/verify-stack.sh`
 
-End-to-end smoke test. Checks containers, Elasticsearch, Kibana, Suricata, Filebeat, Wazuh, and Signature Service. Exits `0` on pass.
+End-to-end smoke test. Checks all services and exits `0` on pass.
 
 ```bash
 bash scripts/tests/verify-stack.sh
@@ -474,10 +408,10 @@ Docker bridge networking gives each container its own network namespace. Suricat
 ```bash
 # 1. Start the stack
 cd soc-project
-docker-compose up -d
+bash setup.sh
 
-# 2. Wait ~3 minutes for initialisation
-docker-compose ps
+# 2. Wait ~60s for initialization, then verify
+bash ../scripts/setup/check-stack.sh
 
 # 3. Set up Kibana data views
 bash ../scripts/setup/setup-kibana.sh
@@ -485,10 +419,13 @@ bash ../scripts/setup/setup-kibana.sh
 # 4. Generate diverse alerts
 bash ../scripts/attacks/generate-alerts.sh
 
-# 5. Smoke test
+# 5. Run smoke test
 bash ../scripts/tests/verify-stack.sh
 
-# 6. Open Kibana → Discover → suricata-ids-*
+# 6. Check alert summary
+bash ../scripts/setup/check-stack.sh
+
+# 7. Open Kibana → Discover → suricata-ids-*
 ```
 
 ### Alert severity levels
@@ -531,17 +468,20 @@ sudo sysctl -w vm.max_map_count=262144
 
 ### Kibana stays unhealthy — "unable to authenticate kibana_system"
 
-This happens on a fresh install because the `kibana_system` password must be explicitly set via the Elasticsearch API. Run the bootstrap step from the Installation section:
+Run the bootstrap step manually:
 
 ```bash
+cd soc-project
+source .env
+
 docker exec soc-elasticsearch curl -sk -X POST \
-  -u "elastic:changeme123" \
+  -u "elastic:${ELASTICSEARCH_PASSWORD}" \
   "https://localhost:9200/_security/user/kibana_system/_password" \
   -H "Content-Type: application/json" \
-  -d '{"password":"changeme123"}'
-```
+  -d "{\"password\":\"${KIBANA_SYSTEM_PASSWORD}\"}"
 
-Then: `docker-compose restart kibana` (or `docker compose restart kibana` on Linux).
+docker-compose restart kibana
+```
 
 ### Kibana shows "server is not ready yet"
 
@@ -555,8 +495,12 @@ docker-compose logs kibana | tail -30
 
 ```bash
 docker-compose logs filebeat | tail -20
-# Check TLS cert path and ES connectivity:
-docker exec soc-elasticsearch curl -sk -u elastic:$PASS https://localhost:9200
+```
+
+Check TLS cert path and ES connectivity:
+```bash
+cd soc-project && source .env
+docker exec soc-elasticsearch curl -sk -u "elastic:${ELASTICSEARCH_PASSWORD}" https://localhost:9200
 ```
 
 ### No alerts appearing in Kibana
@@ -575,11 +519,11 @@ docker-compose logs filebeat | grep -i "Events published"
 ### Port already in use
 
 ```bash
-# Windows
+# Windows (PowerShell)
 netstat -ano | findstr :5601
 
-# macOS / Linux
-lsof -i :5601
+# Linux
+sudo lsof -i :5601
 ```
 
 Change the port in `docker-compose.yml` if needed:
@@ -591,11 +535,11 @@ ports:
 ### Full reset
 
 ```bash
+cd soc-project
 docker-compose down -v
-rm -rf soc-project/data/ soc-project/logs/
+rm -rf data/ logs/
 docker network rm soc-net
-docker network create soc-net
-docker-compose up -d
+bash setup.sh
 ```
 
 ---
@@ -604,7 +548,8 @@ docker-compose up -d
 
 ```
 btl_252_soc/
-├── README.md                        # This file — start here
+├── README.md                        # This file
+├── README-vi.md                     # Vietnamese version
 ├── assignment.md                    # Original assignment (Vietnamese)
 │
 ├── docs/
@@ -615,7 +560,8 @@ btl_252_soc/
 ├── scripts/
 │   ├── setup/
 │   │   ├── setup-kibana.sh          # Create Kibana data views
-│   │   └── check-stack.sh           # Health summary
+│   │   ├── check-stack.sh           # Health summary with colors
+│   │   └── fix-elasticsearch-certs.sh  # SSL permission fix
 │   ├── attacks/
 │   │   ├── generate-alerts.sh       # Shell-based alert generator
 │   │   └── attack-scenarios.py      # Python attack simulator
@@ -623,12 +569,13 @@ btl_252_soc/
 │       └── verify-stack.sh          # Smoke test suite
 │
 └── soc-project/                     # Docker deployment root
+    ├── setup.sh                     # ⭐ One-command automated setup
     ├── docker-compose.yml
     ├── .env                         # Secrets — never commit
     ├── .env.example                 # Template for .env
-    ├── certs/                       # TLS certificates
+    ├── certs/                       # TLS certificates (auto-generated)
     ├── elk/config/                  # Filebeat & Kibana config
-    ├── suricata/conf/               # Suricata config & rules
+    ├── suricata/conf/               # Suricata config & 31k+ rules
     ├── wazuh/conf/                  # Wazuh SIEM config
     ├── signature-service/           # Log integrity service
     └── config/                      # OpenSearch dashboard config
@@ -646,4 +593,12 @@ In production, deploy Suricata with a network TAP, SPAN port, or host-network mo
 
 ---
 
-*Last updated: February 2026*
+## Support
+
+- 🇻🇳 [Xem bản tiếng Việt](README-vi.md)
+- 📁 [Project documentation](docs/)
+- 🐛 [Open an issue](../../issues)
+
+---
+
+*Last updated: May 2026*
