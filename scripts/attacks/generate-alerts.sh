@@ -4,12 +4,18 @@
 # from inside the Suricata container (bypasses Docker bridge limitation).
 #
 # Usage:
-#   ./generate-alerts.sh          # run all scenarios
-#   ./generate-alerts.sh --quick  # run only the fastest 3 scenarios
+#   ./generate-alerts.sh          # run all Suricata scenarios
+#   ./generate-alerts.sh --quick  # run only the fastest 3 Suricata scenarios
+#   ./generate-alerts.sh --all    # run Suricata + Wazuh HIDS scenarios
 
 set -uo pipefail
 
 QUICK="${1:-}"
+RUN_WAZUH=false
+if [ "$QUICK" = "--all" ]; then
+  QUICK=""
+  RUN_WAZUH=true
+fi
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 ok()    { echo -e "  ${GREEN}✓ $*${NC}"; }
@@ -89,6 +95,18 @@ count=$(docker exec soc-elasticsearch curl -s -k \
   2>/dev/null | grep -o '"count":[0-9]*' | head -1 | sed 's/"count"://' || echo "?")
 
 echo "======================================"
-echo -e "  ${GREEN}Total alerts in Elasticsearch: $count${NC}"
+echo -e "  ${GREEN}Total Suricata alerts in Elasticsearch: $count${NC}"
 echo "  View in Kibana → Discover → suricata-ids-*"
 echo "======================================"
+
+# ── Run Wazuh HIDS scenarios if requested ─────────────────────────────
+if [ "$RUN_WAZUH" = "true" ]; then
+  echo ""
+  echo "Now running Wazuh HIDS scenarios …"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -f "$SCRIPT_DIR/generate-wazuh-alerts.sh" ]; then
+    bash "$SCRIPT_DIR/generate-wazuh-alerts.sh"
+  else
+    warn "generate-wazuh-alerts.sh not found in $SCRIPT_DIR"
+  fi
+fi

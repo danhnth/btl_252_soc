@@ -13,6 +13,9 @@ IMPORTANT – Docker networking constraint:
   Or use the shell wrapper:
       ./generate-alerts.sh
 
+For Wazuh HIDS alerts (host-based detection), use:
+      ./generate-wazuh-alerts.sh
+
 Usage:
   python3 attack-scenarios.py [--scenario SCENARIO] [--list] [--count N]
 

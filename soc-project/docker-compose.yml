@@ -112,11 +112,14 @@ services:
     container_name: soc-wazuh-manager
     hostname: wazuh-manager
     environment:
-      - INDEXER_URL=http://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
+      - INDEXER_URL=https://${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}
       - INDEXER_USERNAME=${ELASTICSEARCH_USERNAME}
       - INDEXER_PASSWORD=${ELASTICSEARCH_PASSWORD}
       - API_USERNAME=${WAZUH_ADMIN_USER}
       - API_PASSWORD=${WAZUH_ADMIN_PASSWORD}
+      - INDEXER_CA_PATH=/var/ossec/etc/certs/ca.crt
+      - SSL_CERTIFICATE_AUTHORITIES=/var/ossec/etc/certs/ca.crt
+      - FILEBEAT_SSL_VERIFICATION_MODE=none
     volumes:
       - wazuh-data:/var/ossec/data
       - ./wazuh/conf/ossec.conf:/var/ossec/etc/ossec.conf
@@ -223,7 +226,7 @@ services:
       - ./elk/config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - ${TLS_CERT_PATH}/ca.crt:/usr/share/filebeat/config/certs/ca.crt:ro
       - ${LOGS_PATH}/suricata:/var/log/suricata:ro
-      - ${LOGS_PATH}/wazuh:/var/log/wazuh:ro
+      - ${LOGS_PATH}/wazuh:/var/ossec/logs:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     command: filebeat -e -strict.perms=false

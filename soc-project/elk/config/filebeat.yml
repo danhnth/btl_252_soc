@@ -19,7 +19,7 @@ filebeat.inputs:
 - type: log
   enabled: true
   paths:
-    - /var/log/wazuh/alerts/alerts.json
+    - /var/ossec/logs/alerts/alerts.json
   json.keys_under_root: true
   tags: ["wazuh", "siem"]
   fields:
@@ -30,7 +30,7 @@ filebeat.inputs:
 - type: log
   enabled: true
   paths:
-    - /var/log/wazuh/archives/archives.json
+    - /var/ossec/logs/archives/archives.json
   json.keys_under_root: true
   tags: ["wazuh", "archive"]
   fields:

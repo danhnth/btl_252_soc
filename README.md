@@ -356,6 +356,7 @@ Generates IDS alerts with **colored output** and progress indicators.
 ```bash
 bash scripts/attacks/generate-alerts.sh           # Full suite (~6 scenarios)
 bash scripts/attacks/generate-alerts.sh --quick   # Fast scenarios only
+bash scripts/attacks/generate-alerts.sh --all     # IDS + Wazuh HIDS scenarios
 ```
 
 Scenarios include:
@@ -365,6 +366,24 @@ Scenarios include:
 - Known-Bad Domain Lookup
 - Policy Violations
 - Burst traffic
+
+### `scripts/attacks/generate-wazuh-alerts.sh`
+
+Generates **Wazuh HIDS alerts** by triggering host-based detection inside the Wazuh manager container.
+
+```bash
+bash scripts/attacks/generate-wazuh-alerts.sh        # Full HIDS suite
+bash scripts/attacks/generate-wazuh-alerts.sh --quick # Syscheck only (fastest)
+```
+
+Scenarios include:
+- **File Integrity Monitoring** – creates files in `/etc`, `/usr/bin`, `/bin` (triggers syscheck)
+- **Authentication Attacks** – simulates SSH brute-force log entries
+- **Web Application Attacks** – SQL injection, XSS, path traversal in logs
+- **Privilege Escalation** – sudo failure attempts
+- **Suspicious Activity** – cron backdoors, reverse shell patterns
+
+The script temporarily adds a log source to Wazuh, injects attack patterns, restarts Wazuh to trigger analysis, then cleans up and restores the original configuration.
 
 ### `scripts/attacks/attack-scenarios.py`
 
@@ -565,7 +584,8 @@ btl_252_soc/
 │   │   ├── check-stack.sh           # Health summary with colors
 │   │   └── fix-elasticsearch-certs.sh  # SSL permission fix
 │   ├── attacks/
-│   │   ├── generate-alerts.sh       # Shell-based alert generator
+│   │   ├── generate-alerts.sh       # Shell-based IDS alert generator
+│   │   ├── generate-wazuh-alerts.sh # Wazuh HIDS alert generator
 │   │   └── attack-scenarios.py      # Python attack simulator
 │   └── tests/
 │       └── verify-stack.sh          # Smoke test suite
